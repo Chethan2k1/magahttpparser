@@ -1,4 +1,0 @@
-/home/crdy/Documents/magahttpparser/build/CMakeFiles/rebuild_cache.dir
-/home/crdy/Documents/magahttpparser/build/CMakeFiles/example.dir
-/home/crdy/Documents/magahttpparser/build/CMakeFiles/edit_cache.dir
-/home/crdy/Documents/magahttpparser/build/CMakeFiles/mgparser.dir

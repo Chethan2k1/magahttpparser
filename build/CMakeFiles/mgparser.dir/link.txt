@@ -1,2 +1,0 @@
-/usr/bin/ar qc libmgparser.a  CMakeFiles/mgparser.dir/src/parser.cpp.o
-/usr/bin/ranlib libmgparser.a
