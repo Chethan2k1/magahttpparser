@@ -1,0 +1,18 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+../include/parser.hpp
+string
+-
+
+/home/crdy/Documents/magahttpparser/src/parser.cpp
+parser.hpp
+/home/crdy/Documents/magahttpparser/src/parser.hpp
+cstddef
+-
+
