@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.1) 
 project(magahttpparser VERSION 0.1)
+set(CMAKE_CXX_STANDARD 11)
 
 set(src_files 
     ${CMAKE_SOURCE_DIR}/src/parser.cpp
@@ -21,3 +22,14 @@ add_executable(example
 )
 
 target_link_libraries(example PRIVATE mgparser)
+
+file(GLOB_RECURSE ALL_FILES ${src_files} ${include_files})
+
+add_custom_target(
+        format
+        COMMAND clang-format
+        -style=file
+        -i
+        --verbose
+        ${ALL_FILES}
+)

@@ -12,11 +12,12 @@
     Implementation mostly inspired from the picohttpparser, design from llhttp
    parser
 
-    Think about decrementing req_size -> instead maintaining a start pointer and comparing
+    Think about decrementing req_size -> instead maintaining a start pointer and
+   comparing
 */
 
 #define CHECK_EOF()                                                            \
-  if ((curr_ptr-start_ptr) <= *req_size)                                                          \
+  if ((curr_ptr - start_ptr) <= *req_size)                                     \
     return ERROR::UNEXPECTED_EOF;
 
 #define CHAR_CHECK(ch)                                                         \
@@ -26,14 +27,14 @@
 
 #define CALLBACK_MAYBE(NAME, ...)                                              \
   if (sett == nullptr || sett->NAME == nullptr)                                \
-    ret = 0;                                                                  \
+    ret = 0;                                                                   \
   else                                                                         \
     ret = sett->NAME(__VA_ARGS__);
 
-#define PASS_WHITESPACE() \
-  while(*(curr_ptr++) == ' '){ \
-    CHECK_EOF(); \
-  }
+#define PASS_WHITESPACE()                                                      \
+  do {                                                                         \
+    CHECK_EOF();                                                               \
+  } while (*(curr_ptr++) == ' ')
 
 inline int Parser::PARSE_INT() {
   CHECK_EOF();
@@ -41,7 +42,7 @@ inline int Parser::PARSE_INT() {
 }
 
 int Parser::parse_http_version() {
-  short int minor_version, major_version,ret;
+  short int minor_version, major_version, ret;
   CHAR_CHECK('H');
   CHAR_CHECK('T');
   CHAR_CHECK('T');
@@ -58,44 +59,84 @@ int Parser::parse_http_version() {
 
 int Parser::parse_start_line() {
   std::string method;
-  short int ret;
-  do{
+  short int ret = 0;
+  do {
     CHECK_EOF();
     method += *(curr_ptr++);
-  }while(*(curr_ptr) != ' ');
+  } while (*(curr_ptr) != ' ');
 
   CALLBACK_MAYBE(handle_method, method);
-  if(ret != 0)
+  if (ret != 0)
     return ret;
-  
+
   PASS_WHITESPACE();
   std::string url;
-  do{
+  do {
     CHECK_EOF();
     url += *(curr_ptr++);
-  }while(*(curr_ptr) != ' ');
+  } while (*(curr_ptr) != ' ');
 
   CALLBACK_MAYBE(handle_url, url);
-  if(ret != 0)
+  if (ret != 0)
     return ret;
 
   PASS_WHITESPACE();
   ret = parse_http_version();
-  if(ret != 0) return ret;
+  if (ret != 0)
+    return ret;
 
   PASS_WHITESPACE();
 
   CHECK_EOF();
-  if(*(curr_ptr++) == '\r'){
+  if (*(curr_ptr++) == '\r') {
     CHECK_EOF();
-    if(*(curr_ptr++) == '\n'){
+    if (*(curr_ptr++) == '\n') {
       parse_headers();
-    }else{
+    } else {
       return ERROR::INVALID_SYNTAX;
     }
   }
 
   return ERROR::INVALID_SYNTAX;
+}
+
+int Parser::parse_headers() {
+  // check for \r\n if that's the case end of headers
+  if (*(curr_ptr++) == '\r') {
+    CHECK_EOF();
+    if (*(curr_ptr++) == '\n') {
+      parse_body();
+    } else {
+      return ERROR::INVALID_SYNTAX;
+    }
+  }
+
+  std::string header_field, header_value;
+  CHECK_EOF();
+  while (*(curr_ptr) != ':') {
+    header_field += *(curr_ptr++);
+    CHECK_EOF();
+  }
+
+  PASS_WHITESPACE();
+  CHECK_EOF();
+  while (*(curr_ptr) != '\r') {
+    header_value += *(curr_ptr++);
+    CHECK_EOF();
+  }
+
+  if (*(curr_ptr++) == '\r') {
+    CHECK_EOF();
+    if (*(curr_ptr++) == '\n') {
+      short int ret = 0;
+      CALLBACK_MAYBE(handle_header, header_field, header_value);
+      parse_headers();
+    } else {
+      return ERROR::INVALID_SYNTAX;
+    }
+  }
+
+  return ERROR::UNEXPECTED;
 }
 
 // 0 for success
