@@ -1,5 +1,6 @@
 #include "parser.hpp"
 #include <cstddef>
+#include <stdarg.h>
 
 /*
     State will be updated and when pause is called which is called by a return
@@ -11,32 +12,36 @@
     Implementation mostly inspired from the picohttpparser, design from llhttp
    parser
 
-    Think about decrementing req_size
+    Think about decrementing req_size -> instead maintaining a start pointer and comparing
 */
 
 #define CHECK_EOF()                                                            \
-  if (*req_size <= 0)                                                          \
+  if ((curr_ptr-start_ptr) <= *req_size)                                                          \
     return ERROR::UNEXPECTED_EOF;
 
 #define CHAR_CHECK(ch)                                                         \
   CHECK_EOF();                                                                 \
-  else if (*curr_ptr++ != ch) return ERROR::INVALID_SYNTAX;
+  if (*curr_ptr++ != ch)                                                       \
+    return ERROR::INVALID_SYNTAX;
 
 #define CALLBACK_MAYBE(NAME, ...)                                              \
-  do {                                                                         \
-    if (sett == nullptr || sett->NAME == nullptr)                              \
-      return 0;                                                              \\
-    return settings->NAME(__VA_ARGS__);                                      \
-  } while (0)
+  if (sett == nullptr || sett->NAME == nullptr)                                \
+    ret = 0;                                                                  \
+  else                                                                         \
+    ret = sett->NAME(__VA_ARGS__);
 
-#define PARSE_INT()                                                            \
-  CHECK_EOF();                                                                 \
-  do {                                                                         \
-    return (*(curr_ptr++) - '0');                                              \
-  } while (0)
+#define PASS_WHITESPACE() \
+  while(*(curr_ptr++) == ' '){ \
+    CHECK_EOF(); \
+  }
+
+inline int Parser::PARSE_INT() {
+  CHECK_EOF();
+  return (*(curr_ptr++) - '0');
+}
 
 int Parser::parse_http_version() {
-  short int minor_version, major_version;
+  short int minor_version, major_version,ret;
   CHAR_CHECK('H');
   CHAR_CHECK('T');
   CHAR_CHECK('T');
@@ -47,13 +52,56 @@ int Parser::parse_http_version() {
   CHAR_CHECK('.');
   minor_version = PARSE_INT();
   CALLBACK_MAYBE(handle_version, major_version, minor_version);
+
+  return ret;
 }
 
-int Parser::parse_start_line() {}
+int Parser::parse_start_line() {
+  std::string method;
+  short int ret;
+  do{
+    CHECK_EOF();
+    method += *(curr_ptr++);
+  }while(*(curr_ptr) != ' ');
+
+  CALLBACK_MAYBE(handle_method, method);
+  if(ret != 0)
+    return ret;
+  
+  PASS_WHITESPACE();
+  std::string url;
+  do{
+    CHECK_EOF();
+    url += *(curr_ptr++);
+  }while(*(curr_ptr) != ' ');
+
+  CALLBACK_MAYBE(handle_url, url);
+  if(ret != 0)
+    return ret;
+
+  PASS_WHITESPACE();
+  ret = parse_http_version();
+  if(ret != 0) return ret;
+
+  PASS_WHITESPACE();
+
+  CHECK_EOF();
+  if(*(curr_ptr++) == '\r'){
+    CHECK_EOF();
+    if(*(curr_ptr++) == '\n'){
+      parse_headers();
+    }else{
+      return ERROR::INVALID_SYNTAX;
+    }
+  }
+
+  return ERROR::INVALID_SYNTAX;
+}
 
 // 0 for success
 int Parser::parser_execute(const char *req, size_t *size) {
   curr_ptr = const_cast<char *>(req);
+  start_ptr = req;
   req_size = size;
   return parse_start_line();
 }

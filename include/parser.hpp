@@ -8,15 +8,15 @@ enum ERROR {
     UNEXPECTED_EOF
 };
 
-enum METHOD {
-    GET,
-    POST,
-    HEAD
-};
+// enum METHOD {
+//     GET,
+//     POST,
+//     HEAD
+// };
 
-using method_cb = int *(const METHOD&);
-using version_cb = int *(const int&,const int&); // major_version,minor_version
-using data_cb = int *(const std::string&);
+using method_cb = int(*)(const std::string&);
+using version_cb = int(*)(const int&,const int&); // major_version,minor_version
+using data_cb = int(*)(const std::string&);
 
 struct settings {
     void* data;
@@ -36,10 +36,13 @@ enum State {
 struct Parser {
     private:
     char* curr_ptr;
+    const char* start_ptr;
     size_t* req_size;
     State* state;
+    inline int PARSE_INT();
     int parse_http_version();
     int parse_start_line();
+    int parse_headers();
 
     public:
     settings *sett;
