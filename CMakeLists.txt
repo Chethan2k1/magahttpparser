@@ -17,13 +17,20 @@ add_library(mgparser STATIC
 
 target_include_directories(mgparser PUBLIC ${CMAKE_SOURCE_DIR}/include)
 
-add_executable(example
-    ${CMAKE_SOURCE_DIR}/main.cpp
+# testing 
+find_package(GTest REQUIRED)
+set(test_files ${CMAKE_SOURCE_DIR}/test/test.cpp)
+add_executable(test ${test_files})
+
+target_link_libraries(test PRIVATE GTest::GTest mgparser)
+
+add_test(
+    NAME ParserTest
+    COMMAND ParserTest
 )
 
-target_link_libraries(example PRIVATE mgparser)
-
-file(GLOB_RECURSE ALL_FILES ${src_files} ${include_files})
+# formating
+file(GLOB_RECURSE ALL_FILES ${src_files} ${include_files} ${test_files})
 
 add_custom_target(
         format

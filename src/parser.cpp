@@ -1,5 +1,6 @@
 #include "parser.hpp"
 #include <cstddef>
+#include <iostream>
 #include <stdarg.h>
 
 /*
@@ -17,7 +18,7 @@
 */
 
 #define CHECK_EOF()                                                            \
-  if ((curr_ptr - start_ptr) <= *req_size)                                     \
+  if ((curr_ptr - start_ptr) > *(req_size))                                    \
     return ERROR::UNEXPECTED_EOF;
 
 #define CHAR_CHECK(ch)                                                         \
@@ -34,7 +35,7 @@
 #define PASS_WHITESPACE()                                                      \
   do {                                                                         \
     CHECK_EOF();                                                               \
-  } while (*(curr_ptr++) == ' ')
+  } while (*(++curr_ptr) == ' ')
 
 inline int Parser::PARSE_INT() {
   CHECK_EOF();
@@ -85,8 +86,6 @@ int Parser::parse_start_line() {
   if (ret != 0)
     return ret;
 
-  PASS_WHITESPACE();
-
   CHECK_EOF();
   if (*(curr_ptr++) == '\r') {
     CHECK_EOF();
@@ -105,7 +104,8 @@ int Parser::parse_headers() {
   if (*(curr_ptr++) == '\r') {
     CHECK_EOF();
     if (*(curr_ptr++) == '\n') {
-      parse_body();
+      // parse_body();
+      return 0;
     } else {
       return ERROR::INVALID_SYNTAX;
     }
@@ -130,7 +130,8 @@ int Parser::parse_headers() {
     if (*(curr_ptr++) == '\n') {
       short int ret = 0;
       CALLBACK_MAYBE(handle_header, header_field, header_value);
-      parse_headers();
+      if(ret == 0) parse_headers();
+      else return ret;
     } else {
       return ERROR::INVALID_SYNTAX;
     }

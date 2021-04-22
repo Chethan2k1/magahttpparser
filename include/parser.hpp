@@ -2,6 +2,7 @@
 #include <string>
 
 enum ERROR {
+  NO_ERROR,
   UNKNOWN_METHOD,
   INVALID_SYNTAX,
   INVALID_VERSION,
@@ -9,7 +10,6 @@ enum ERROR {
   UNEXPECTED
 };
 
-using method_cb = int (*)(const std::string &);
 using version_cb = int (*)(const int &,
                            const int &); // major_version,minor_version
 using header_cb = int (*)(const std::string &,
@@ -17,8 +17,7 @@ using header_cb = int (*)(const std::string &,
 using data_cb = int (*)(const std::string &);
 
 struct settings {
-  void *data;
-  method_cb handle_method;
+  data_cb handle_method;
   version_cb handle_version;
   data_cb handle_url;
   header_cb handle_header;
