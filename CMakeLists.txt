@@ -39,6 +39,7 @@ else()
     endif()
 
     target_link_libraries(test PRIVATE googletest mgparser)
+    target_include_directories(test PUBLIC ${googletest_SOURCE_DIR}/googletest/include)
 endif()
 
 add_test(
