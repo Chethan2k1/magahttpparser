@@ -1,6 +1,5 @@
 #include "parser.hpp"
 #include <cstddef>
-#include <iostream>
 #include <stdarg.h>
 
 /*
@@ -20,6 +19,10 @@
 #define CHECK_EOF()                                                            \
   if ((curr_ptr - start_ptr) > *(req_size))                                    \
     return ERROR::UNEXPECTED_EOF;
+
+#define IS_EOF()                                                               \
+  if ((curr_ptr - start_ptr) == *(req_size))                                   \
+    return 0;
 
 #define CHAR_CHECK(ch)                                                         \
   CHECK_EOF();                                                                 \
@@ -90,7 +93,7 @@ int Parser::parse_start_line() {
   if (*(curr_ptr++) == '\r') {
     CHECK_EOF();
     if (*(curr_ptr++) == '\n') {
-      parse_headers();
+      return parse_headers();
     } else {
       return ERROR::INVALID_SYNTAX;
     }
@@ -101,9 +104,9 @@ int Parser::parse_start_line() {
 
 int Parser::parse_headers() {
   // check for \r\n if that's the case end of headers
-  if (*(curr_ptr++) == '\r') {
+  if (*(curr_ptr) == '\r') {
     CHECK_EOF();
-    if (*(curr_ptr++) == '\n') {
+    if (*(++curr_ptr) == '\n') {
       // parse_body();
       return 0;
     } else {
@@ -112,7 +115,7 @@ int Parser::parse_headers() {
   }
 
   std::string header_field, header_value;
-  CHECK_EOF();
+  IS_EOF();
   while (*(curr_ptr) != ':') {
     header_field += *(curr_ptr++);
     CHECK_EOF();
@@ -130,8 +133,10 @@ int Parser::parse_headers() {
     if (*(curr_ptr++) == '\n') {
       short int ret = 0;
       CALLBACK_MAYBE(handle_header, header_field, header_value);
-      if(ret == 0) parse_headers();
-      else return ret;
+      if (ret == 0)
+        return parse_headers();
+      else
+        return ret;
     } else {
       return ERROR::INVALID_SYNTAX;
     }

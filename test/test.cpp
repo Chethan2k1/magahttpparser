@@ -1,5 +1,4 @@
 #include <gtest/gtest.h>
-#include <iostream>
 #include <parser.hpp>
 #include <string>
 
@@ -29,7 +28,7 @@ TEST(Request, ResponseWithoutBody) {
       EXPECT_EQ(val, "RandomBrowser1.1");
       return 0;
     }
-    
+
     return -1;
   };
 
