@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.1) 
 project(magahttpparser VERSION 0.1)
 set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(src_files 
     ${CMAKE_SOURCE_DIR}/src/parser.cpp
@@ -18,11 +19,27 @@ add_library(mgparser STATIC
 target_include_directories(mgparser PUBLIC ${CMAKE_SOURCE_DIR}/include)
 
 # testing 
-find_package(GTest REQUIRED)
 set(test_files ${CMAKE_SOURCE_DIR}/test/test.cpp)
 add_executable(test ${test_files})
 
-target_link_libraries(test PRIVATE GTest::GTest mgparser)
+find_package(GTest)
+if(GTest_FOUND)
+    target_link_libraries(test PRIVATE GTest::GTest mgparser)
+else()
+    include(FetchContent)
+    FetchContent_Declare(googletest
+    GIT_REPOSITORY https://github.com/google/googletest.git
+    GIT_TAG release-1.10.0
+    )
+
+    FetchContent_GetProperties(googletest)
+    if(NOT googletest_POPULATED)
+        FetchContent_Populate(googletest)
+        add_subdirectory(${googletest_SOURCE_DIR} ${googletest_BINARY_DIR})
+    endif()
+
+    target_link_libraries(test PRIVATE googletest mgparser)
+endif()
 
 add_test(
     NAME ParserTest

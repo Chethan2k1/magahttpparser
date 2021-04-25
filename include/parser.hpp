@@ -1,8 +1,9 @@
 #pragma once
 #include <string>
 
-enum ERROR {
+enum RETURN {
   NO_ERROR,
+  PAUSE,
   UNKNOWN_METHOD,
   INVALID_SYNTAX,
   INVALID_VERSION,
@@ -21,16 +22,18 @@ struct settings {
   version_cb handle_version;
   data_cb handle_url;
   header_cb handle_header;
+  data_cb handle_body;
 };
 
 enum State { STARTLINE, HEADER, BODY };
 
 struct Parser {
 private:
+  short int ret;
   char *curr_ptr;
   const char *start_ptr;
   size_t *req_size;
-  State *state;
+  State state;
 
   inline int PARSE_INT();
   int parse_http_version();
@@ -41,6 +44,6 @@ private:
 public:
   settings *sett;
 
-  explicit Parser(settings *setting) : sett(setting) {}
+  explicit Parser(settings *setting) : sett(setting), ret(0) {}
   int parser_execute(const char *, size_t *);
 };

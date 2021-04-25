@@ -1,5 +1,6 @@
 #include "parser.hpp"
 #include <cstddef>
+#include <iostream>
 #include <stdarg.h>
 
 /*
@@ -18,7 +19,7 @@
 
 #define CHECK_EOF()                                                            \
   if ((curr_ptr - start_ptr) > *(req_size))                                    \
-    return ERROR::UNEXPECTED_EOF;
+    return RETURN::UNEXPECTED_EOF;
 
 #define IS_EOF()                                                               \
   if ((curr_ptr - start_ptr) == *(req_size))                                   \
@@ -27,7 +28,7 @@
 #define CHAR_CHECK(ch)                                                         \
   CHECK_EOF();                                                                 \
   if (*curr_ptr++ != ch)                                                       \
-    return ERROR::INVALID_SYNTAX;
+    return RETURN::INVALID_SYNTAX;
 
 #define CALLBACK_MAYBE(NAME, ...)                                              \
   if (sett == nullptr || sett->NAME == nullptr)                                \
@@ -63,7 +64,6 @@ int Parser::parse_http_version() {
 
 int Parser::parse_start_line() {
   std::string method;
-  short int ret = 0;
   do {
     CHECK_EOF();
     method += *(curr_ptr++);
@@ -95,11 +95,11 @@ int Parser::parse_start_line() {
     if (*(curr_ptr++) == '\n') {
       return parse_headers();
     } else {
-      return ERROR::INVALID_SYNTAX;
+      return RETURN::INVALID_SYNTAX;
     }
   }
 
-  return ERROR::INVALID_SYNTAX;
+  return RETURN::INVALID_SYNTAX;
 }
 
 int Parser::parse_headers() {
@@ -107,10 +107,11 @@ int Parser::parse_headers() {
   if (*(curr_ptr) == '\r') {
     CHECK_EOF();
     if (*(++curr_ptr) == '\n') {
-      // parse_body();
-      return 0;
+      IS_EOF();
+      ++curr_ptr;
+      return parse_body();
     } else {
-      return ERROR::INVALID_SYNTAX;
+      return RETURN::INVALID_SYNTAX;
     }
   }
 
@@ -131,18 +132,28 @@ int Parser::parse_headers() {
   if (*(curr_ptr++) == '\r') {
     CHECK_EOF();
     if (*(curr_ptr++) == '\n') {
-      short int ret = 0;
       CALLBACK_MAYBE(handle_header, header_field, header_value);
       if (ret == 0)
         return parse_headers();
       else
         return ret;
     } else {
-      return ERROR::INVALID_SYNTAX;
+      return RETURN::INVALID_SYNTAX;
     }
   }
 
-  return ERROR::UNEXPECTED;
+  return RETURN::UNEXPECTED;
+}
+
+int Parser::parse_body() {
+  std::string body;
+  do {
+    body += *(curr_ptr++);
+  } while ((curr_ptr - start_ptr) != *(req_size));
+
+  CALLBACK_MAYBE(handle_body, body);
+
+  return ret;
 }
 
 // 0 for success
