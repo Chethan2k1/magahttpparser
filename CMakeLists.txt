@@ -26,19 +26,23 @@ find_package(GTest)
 if(GTest_FOUND)
     target_link_libraries(test PRIVATE GTest::GTest mgparser)
 else()
+    message(STATUS "Did not find the library")
     include(FetchContent)
-    FetchContent_Declare(googletest
-    GIT_REPOSITORY https://github.com/google/googletest.git
-    GIT_TAG release-1.10.0
+    FetchContent_Declare(
+        googletest
+        GIT_REPOSITORY https://github.com/google/googletest.git
+        GIT_TAG release-1.10.0
+        SOURCE_DIR 
     )
 
     FetchContent_GetProperties(googletest)
     if(NOT googletest_POPULATED)
         FetchContent_Populate(googletest)
-        add_subdirectory(${googletest_SOURCE_DIR} ${googletest_BINARY_DIR})
+        set(BUILD_GMOCK OFF CACHE BOOL "Don't build GMock" FORCE)
+        add_subdirectory("${googletest_SOURCE_DIR}")
     endif()
 
-    target_link_libraries(test PRIVATE googletest mgparser)
+    target_link_libraries(test PRIVATE gtest mgparser)
     target_include_directories(test PUBLIC ${googletest_SOURCE_DIR}/googletest/include)
 endif()
 
