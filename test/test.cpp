@@ -1,10 +1,10 @@
 #include <gtest/gtest.h>
 #include <parser.hpp>
-#include <string>
+#include <string_view>
 
 #define HANDLE_METHOD(method)                                                  \
   do {                                                                         \
-    sett.handle_method = [](const std::string &method_) {                      \
+    sett.handle_method = [](std::string_view method_) {                        \
       EXPECT_EQ(method_, method);                                              \
       return RETURN::NO_ERROR;                                                 \
     };                                                                         \
@@ -21,7 +21,7 @@
 
 #define HANDLE_URL()                                                           \
   do {                                                                         \
-    sett.handle_url = [](const std::string &url) {                             \
+    sett.handle_url = [](std::string_view url) {                               \
       EXPECT_EQ(url, "http://www.example.com/123");                            \
       return RETURN::NO_ERROR;                                                 \
     };                                                                         \
@@ -29,8 +29,7 @@
 
 #define HANDLE_HEADER()                                                        \
   do {                                                                         \
-    sett.handle_header = [](const std::string &field,                          \
-                            const std::string &val) {                          \
+    sett.handle_header = [](std::string_view field, std::string_view val) {    \
       if (field == "Host") {                                                   \
         EXPECT_EQ(val, "www.example.com");                                     \
         return RETURN::NO_ERROR;                                               \
@@ -48,7 +47,7 @@
 
 #define HANDLE_BODY(body)                                                      \
   do {                                                                         \
-    sett.handle_body = [](const std::string &body_) {                          \
+    sett.handle_body = [](std::string_view body_) {                            \
       EXPECT_EQ(body_, body);                                                  \
       return RETURN::NO_ERROR;                                                 \
     };                                                                         \
@@ -68,7 +67,7 @@ TEST(Request, ResponseWithoutBody) {
 
   Parser parser(&sett);
   size_t req_size = req.size();
-  int ret = parser.parser_execute(req.data(), &req_size);
+  int ret = parser.parser_execute(req);
   EXPECT_EQ(ret, 0);
 }
 
@@ -88,7 +87,7 @@ TEST(Request, ResponseWithBody) {
 
   Parser parser(&sett);
   size_t req_size = req.size();
-  int ret = parser.parser_execute(req.data(), &req_size);
+  int ret = parser.parser_execute(req);
   EXPECT_EQ(ret, 0);
 }
 
@@ -103,7 +102,7 @@ TEST(Request, ResponseWithPause) {
   HANDLE_METHOD("POST");
   HANDLE_VERSION();
   HANDLE_URL();
-  sett.handle_header = [](const std::string &field, const std::string &val) {
+  sett.handle_header = [](std::string_view field, std::string_view val) {
     if (field == "Host") {
       EXPECT_EQ(val, "www.example.com");
       return RETURN::NO_ERROR;
@@ -116,16 +115,15 @@ TEST(Request, ResponseWithPause) {
     }
 
     return RETURN::ERROR;
-  };  
+  };
   HANDLE_BODY("Hey there! Sup?");
 
   Parser parser(&sett);
   size_t req_size = req.size();
-  int ret = parser.parser_execute(req.data(), &req_size);
+  int ret = parser.parser_execute(req);
   EXPECT_EQ(ret, RETURN::PAUSE);
   req += req_only_body;
-  req_size += req_only_body.size();
-  ret = parser.parser_resume();
+  ret = parser.parser_resume(req);
   EXPECT_EQ(ret, 0);
 }
 

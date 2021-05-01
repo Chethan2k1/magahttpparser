@@ -1,5 +1,5 @@
 #pragma once
-#include <string>
+#include <string_view>
 
 enum RETURN {
   NO_ERROR,
@@ -15,9 +15,9 @@ enum RETURN {
 
 using version_cb = RETURN (*)(const int &,
                               const int &); // major_version,minor_version
-using header_cb = RETURN (*)(const std::string &,
-                             const std::string &); // header field and value
-using data_cb = RETURN (*)(const std::string &);
+using header_cb = RETURN (*)(std::string_view,
+                             std::string_view); // header field and value
+using data_cb = RETURN (*)(std::string_view);
 
 struct settings {
   data_cb handle_method;
@@ -31,9 +31,8 @@ enum STATE { HEADER, BODY };
 
 struct Parser {
 private:
-  char *curr_ptr;
-  const char *start_ptr;
-  size_t *req_size;
+  int curr_ptr_;
+  std::string_view req_;
   STATE state;
   RETURN ret;
 
@@ -46,7 +45,8 @@ private:
 public:
   settings *sett;
 
-  explicit Parser(settings *setting) : sett(setting), ret(RETURN::NO_ERROR) {}
-  RETURN parser_execute(const char *, size_t *);
-  RETURN parser_resume();
+  explicit Parser(settings *setting)
+      : curr_ptr_(0), sett(setting), ret(RETURN::NO_ERROR) {}
+  RETURN parser_execute(std::string_view req);
+  RETURN parser_resume(std::string_view req);
 };

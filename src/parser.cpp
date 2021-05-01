@@ -1,6 +1,5 @@
 #include "parser.hpp"
 #include <cstddef>
-#include <iostream>
 #include <stdarg.h>
 
 /*
@@ -18,16 +17,16 @@
 */
 
 #define CHECK_EOF()                                                            \
-  if ((curr_ptr - start_ptr) > *(req_size))                                    \
+  if (curr_ptr_ >= req_.size())                                                \
     return RETURN::UNEXPECTED_EOF;
 
 #define IS_EOF()                                                               \
-  if ((curr_ptr - start_ptr) == *(req_size))                                   \
+  if (curr_ptr_ == (req_.size()))                                              \
     return RETURN::NO_ERROR;
 
 #define CHAR_CHECK(ch)                                                         \
   CHECK_EOF();                                                                 \
-  if (*curr_ptr++ != ch)                                                       \
+  if (req_[curr_ptr_++] != ch)                                                 \
     return RETURN::INVALID_SYNTAX;
 
 #define CALLBACK_MAYBE(NAME, ...)                                              \
@@ -39,11 +38,11 @@
 #define PASS_WHITESPACE()                                                      \
   do {                                                                         \
     CHECK_EOF();                                                               \
-  } while (*(++curr_ptr) == ' ')
+  } while (req_[++curr_ptr_] == ' ')
 
 inline int Parser::PARSE_INT() {
   CHECK_EOF();
-  return (*(curr_ptr++) - '0');
+  return (req_[curr_ptr_++] - '0');
 }
 
 RETURN Parser::parse_http_version() {
@@ -63,26 +62,26 @@ RETURN Parser::parse_http_version() {
 }
 
 RETURN Parser::parse_start_line() {
-  std::string method;
+  int start_ptr = curr_ptr_;
   do {
     CHECK_EOF();
-    method += *(curr_ptr++);
-  } while (*(curr_ptr) != ' ');
+    curr_ptr_++;
+  } while (req_[curr_ptr_] != ' ');
 
-  CALLBACK_MAYBE(handle_method, method);
+  CALLBACK_MAYBE(handle_method, req_.substr(start_ptr, curr_ptr_ - start_ptr));
   if (ret == RETURN::PAUSE)
     return RETURN::INVALID_PAUSE;
   if (ret != 0)
     return ret;
 
   PASS_WHITESPACE();
-  std::string url;
+  start_ptr = curr_ptr_;
   do {
     CHECK_EOF();
-    url += *(curr_ptr++);
-  } while (*(curr_ptr) != ' ');
+    curr_ptr_++;
+  } while (req_[curr_ptr_] != ' ');
 
-  CALLBACK_MAYBE(handle_url, url);
+  CALLBACK_MAYBE(handle_url, req_.substr(start_ptr, curr_ptr_ - start_ptr));
   if (ret == RETURN::PAUSE)
     return RETURN::INVALID_PAUSE;
   if (ret != 0)
@@ -93,11 +92,11 @@ RETURN Parser::parse_start_line() {
   if (ret != 0 && ret != RETURN::PAUSE)
     return ret;
 
-  state = STATE::BODY;
+  state = STATE::HEADER;
   CHECK_EOF();
-  if (*(curr_ptr++) == '\r') {
+  if (req_[curr_ptr_++] == '\r') {
     CHECK_EOF();
-    if (*(curr_ptr++) == '\n') {
+    if (req_[curr_ptr_++] == '\n') {
       if (ret == RETURN::PAUSE)
         return ret;
       return parse_headers();
@@ -111,35 +110,39 @@ RETURN Parser::parse_start_line() {
 
 RETURN Parser::parse_headers() {
   // check for \r\n if that's the case end of headers
-  if (*(curr_ptr) == '\r') {
+  if (req_[curr_ptr_] == '\r') {
     CHECK_EOF();
-    if (*(++curr_ptr) == '\n') {
+    if (req_[++curr_ptr_] == '\n') {
       IS_EOF();
-      ++curr_ptr;
+      ++curr_ptr_;
       return parse_body();
     } else {
       return RETURN::INVALID_SYNTAX;
     }
   }
 
-  std::string header_field, header_value;
   IS_EOF();
-  while (*(curr_ptr) != ':') {
-    header_field += *(curr_ptr++);
+  int start_ptr = curr_ptr_;
+  while (req_[curr_ptr_] != ':') {
+    curr_ptr_++;
     CHECK_EOF();
   }
+
+  std::string_view field = req_.substr(start_ptr, curr_ptr_ - start_ptr);
 
   PASS_WHITESPACE();
+  start_ptr = curr_ptr_;
   CHECK_EOF();
-  while (*(curr_ptr) != '\r') {
-    header_value += *(curr_ptr++);
+  while (req_[curr_ptr_] != '\r') {
+    curr_ptr_++;
     CHECK_EOF();
   }
 
-  if (*(curr_ptr++) == '\r') {
+  std::string_view value = req_.substr(start_ptr, curr_ptr_ - start_ptr);
+  if (req_[curr_ptr_++] == '\r') {
     CHECK_EOF();
-    if (*(curr_ptr++) == '\n') {
-      CALLBACK_MAYBE(handle_header, header_field, header_value);
+    if (req_[curr_ptr_++] == '\n') {
+      CALLBACK_MAYBE(handle_header, field, value);
       if (ret != 0)
         return ret;
       else
@@ -153,12 +156,12 @@ RETURN Parser::parse_headers() {
 }
 
 RETURN Parser::parse_body() {
-  std::string body;
+  int start_ptr = curr_ptr_;
   do {
-    body += *(curr_ptr++);
-  } while ((curr_ptr - start_ptr) != *(req_size));
+    curr_ptr_++;
+  } while (curr_ptr_ < req_.size());
 
-  CALLBACK_MAYBE(handle_body, body);
+  CALLBACK_MAYBE(handle_body, req_.substr(start_ptr, curr_ptr_ - start_ptr));
   if (ret == RETURN::PAUSE)
     return RETURN::INVALID_PAUSE;
 
@@ -166,21 +169,20 @@ RETURN Parser::parse_body() {
 }
 
 // RETURN::NO_ERROR for success
-RETURN Parser::parser_execute(const char *req, size_t *size) {
-  curr_ptr = const_cast<char *>(req);
-  start_ptr = req;
-  req_size = size;
+RETURN Parser::parser_execute(std::string_view req) {
+  req_ = req;
   return parse_start_line();
 }
 
 // Pausing possible only after parsing start line and headers by calling
 // RETURN::PAUSE from callbacks
-RETURN Parser::parser_resume() {
+RETURN Parser::parser_resume(std::string_view req) {
+  req_ = req;
   if (ret != RETURN::PAUSE)
     return RETURN::INVALID_PAUSE;
 
   if (state == STATE::HEADER) {
-    return parse_start_line();
+    return parse_headers();
   } else if (state == STATE::BODY) {
     return parse_body();
   }
