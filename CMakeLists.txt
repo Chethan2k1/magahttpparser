@@ -1,14 +1,14 @@
 cmake_minimum_required(VERSION 3.1) 
 project(magahttpparser VERSION 0.1)
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(src_files 
-    ${CMAKE_SOURCE_DIR}/src/parser.cpp
+    ${CMAKE_SOURCE_DIR}/src/mgparser.cpp
 )
 
 set(include_files
-    ${CMAKE_SOURCE_DIR}/include/parser.hpp
+    ${CMAKE_SOURCE_DIR}/include/mgparser.hpp
 )
 
 add_library(mgparser STATIC 
@@ -43,7 +43,7 @@ else()
     endif()
 
     target_link_libraries(test PRIVATE gtest mgparser)
-    target_include_directories(test PUBLIC ${googletest_SOURCE_DIR}/googletest/include)
+    target_include_directories(test PRIVATE ${googletest_SOURCE_DIR}/googletest/include)
 endif()
 
 add_test(

@@ -1,4 +1,4 @@
-#include "parser.hpp"
+#include "mgparser.hpp"
 #include <cstddef>
 #include <stdarg.h>
 
@@ -18,20 +18,20 @@
 
 #define CHECK_EOF()                                                            \
   if (curr_ptr_ >= req_.size())                                                \
-    return RETURN::UNEXPECTED_EOF;
+    return mg_return_t::UNEXPECTED_EOF;
 
 #define IS_EOF()                                                               \
   if (curr_ptr_ == (req_.size()))                                              \
-    return RETURN::NO_ERROR;
+    return mg_return_t::SUCCESS;
 
 #define CHAR_CHECK(ch)                                                         \
   CHECK_EOF();                                                                 \
   if (req_[curr_ptr_++] != ch)                                                 \
-    return RETURN::INVALID_SYNTAX;
+    return mg_return_t::INVALID_SYNTAX;
 
 #define CALLBACK_MAYBE(NAME, ...)                                              \
   if (sett == nullptr || sett->NAME == nullptr)                                \
-    ret = RETURN::NO_ERROR;                                                    \
+    ret = mg_return_t::SUCCESS;                                                \
   else                                                                         \
     ret = sett->NAME(__VA_ARGS__);
 
@@ -40,12 +40,12 @@
     CHECK_EOF();                                                               \
   } while (req_[++curr_ptr_] == ' ')
 
-inline int Parser::PARSE_INT() {
+inline int mg_parser_t::PARSE_INT() {
   CHECK_EOF();
   return (req_[curr_ptr_++] - '0');
 }
 
-RETURN Parser::parse_http_version() {
+mg_return_t mg_parser_t::parse_http_version() {
   short int minor_version, major_version;
   CHAR_CHECK('H');
   CHAR_CHECK('T');
@@ -61,7 +61,7 @@ RETURN Parser::parse_http_version() {
   return ret;
 }
 
-RETURN Parser::parse_start_line() {
+mg_return_t mg_parser_t::parse_start_line() {
   int start_ptr = curr_ptr_;
   do {
     CHECK_EOF();
@@ -69,8 +69,8 @@ RETURN Parser::parse_start_line() {
   } while (req_[curr_ptr_] != ' ');
 
   CALLBACK_MAYBE(handle_method, req_.substr(start_ptr, curr_ptr_ - start_ptr));
-  if (ret == RETURN::PAUSE)
-    return RETURN::INVALID_PAUSE;
+  if (ret == mg_return_t::PAUSE)
+    return mg_return_t::INVALID_PAUSE;
   if (ret != 0)
     return ret;
 
@@ -82,14 +82,14 @@ RETURN Parser::parse_start_line() {
   } while (req_[curr_ptr_] != ' ');
 
   CALLBACK_MAYBE(handle_url, req_.substr(start_ptr, curr_ptr_ - start_ptr));
-  if (ret == RETURN::PAUSE)
-    return RETURN::INVALID_PAUSE;
+  if (ret == mg_return_t::PAUSE)
+    return mg_return_t::INVALID_PAUSE;
   if (ret != 0)
     return ret;
 
   PASS_WHITESPACE();
   ret = parse_http_version();
-  if (ret != 0 && ret != RETURN::PAUSE)
+  if (ret != 0 && ret != mg_return_t::PAUSE)
     return ret;
 
   state = STATE::HEADER;
@@ -97,18 +97,18 @@ RETURN Parser::parse_start_line() {
   if (req_[curr_ptr_++] == '\r') {
     CHECK_EOF();
     if (req_[curr_ptr_++] == '\n') {
-      if (ret == RETURN::PAUSE)
+      if (ret == mg_return_t::PAUSE)
         return ret;
       return parse_headers();
     } else {
-      return RETURN::INVALID_SYNTAX;
+      return mg_return_t::INVALID_SYNTAX;
     }
   }
 
-  return RETURN::INVALID_SYNTAX;
+  return mg_return_t::INVALID_SYNTAX;
 }
 
-RETURN Parser::parse_headers() {
+mg_return_t mg_parser_t::parse_headers() {
   // check for \r\n if that's the case end of headers
   if (req_[curr_ptr_] == '\r') {
     CHECK_EOF();
@@ -117,7 +117,7 @@ RETURN Parser::parse_headers() {
       ++curr_ptr_;
       return parse_body();
     } else {
-      return RETURN::INVALID_SYNTAX;
+      return mg_return_t::INVALID_SYNTAX;
     }
   }
 
@@ -148,38 +148,40 @@ RETURN Parser::parse_headers() {
       else
         return parse_headers();
     } else {
-      return RETURN::INVALID_SYNTAX;
+      return mg_return_t::INVALID_SYNTAX;
     }
   }
 
-  return RETURN::UNEXPECTED;
+  return mg_return_t::UNEXPECTED;
 }
 
-RETURN Parser::parse_body() {
+mg_return_t mg_parser_t::parse_body() {
   int start_ptr = curr_ptr_;
   do {
     curr_ptr_++;
   } while (curr_ptr_ < req_.size());
 
   CALLBACK_MAYBE(handle_body, req_.substr(start_ptr, curr_ptr_ - start_ptr));
-  if (ret == RETURN::PAUSE)
-    return RETURN::INVALID_PAUSE;
+  if (ret == mg_return_t::PAUSE)
+    return mg_return_t::INVALID_PAUSE;
 
   return ret;
 }
 
-// RETURN::NO_ERROR for success
-RETURN Parser::parser_execute(std::string_view req) {
+void mg_parser_t::mg_settings_init(mg_settings_t *settings) { sett = settings; }
+
+// mg_return_t::SUCCESS for success
+mg_return_t mg_parser_t::mg_parser_execute(std::string_view req) {
   req_ = req;
   return parse_start_line();
 }
 
 // Pausing possible only after parsing start line and headers by calling
-// RETURN::PAUSE from callbacks
-RETURN Parser::parser_resume(std::string_view req) {
+// mg_return_t::PAUSE from callbacks
+mg_return_t mg_parser_t::mg_parser_resume(std::string_view req) {
   req_ = req;
-  if (ret != RETURN::PAUSE)
-    return RETURN::INVALID_PAUSE;
+  if (ret != mg_return_t::PAUSE)
+    return mg_return_t::INVALID_PAUSE;
 
   if (state == STATE::HEADER) {
     return parse_headers();
