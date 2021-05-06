@@ -67,7 +67,6 @@ TEST(Request, ResponseWithoutBody) {
 
   mg_parser_t parser;
   parser.mg_settings_init(&sett);
-  size_t req_size = req.size();
   int ret = parser.mg_parser_execute(req);
   EXPECT_EQ(ret, 0);
 }
@@ -88,7 +87,6 @@ TEST(Request, ResponseWithBody) {
 
   mg_parser_t parser;
   parser.mg_settings_init(&sett);
-  size_t req_size = req.size();
   int ret = parser.mg_parser_execute(req);
   EXPECT_EQ(ret, 0);
 }
@@ -122,7 +120,6 @@ TEST(Request, ResponseWithPause) {
 
   mg_parser_t parser;
   parser.mg_settings_init(&sett);
-  size_t req_size = req.size();
   int ret = parser.mg_parser_execute(req);
   EXPECT_EQ(ret, mg_return_t::PAUSE);
   req += req_only_body;

@@ -15,12 +15,15 @@ add_library(mgparser STATIC
     ${src_files}
     ${include_files}
 )
+target_compile_options(mgparser PUBLIC -Wall)
+set_target_properties(mgparser PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 target_include_directories(mgparser PUBLIC ${CMAKE_SOURCE_DIR}/include)
 
 # testing 
 set(test_files ${CMAKE_SOURCE_DIR}/test/test.cpp)
 add_executable(test ${test_files})
+target_compile_options(test PUBLIC -Wall)
 
 find_package(GTest)
 if(GTest_FOUND)
