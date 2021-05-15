@@ -29,12 +29,6 @@
   if (req_[curr_ptr_++] != ch)                                                 \
     return mg_return_t::INVALID_SYNTAX;
 
-#define CALLBACK_MAYBE(NAME)                                                   \
-  if (sett == nullptr || sett->NAME == nullptr)                                \
-    ret = mg_return_t::SUCCESS;                                                \
-  else                                                                         \
-    ret = sett->NAME(__VA_ARGS__);
-
 template <typename FuncPtr, typename... Args>
 static mg_return_t Callback_Maybe(const mg_settings_t *sett, FuncPtr fptr,
                                   Args... args) {
