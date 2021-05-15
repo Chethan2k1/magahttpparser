@@ -31,9 +31,9 @@ enum STATE { HEADER, BODY };
 
 struct mg_parser_t {
 private:
+  STATE state;
   int curr_ptr_;
   std::string_view req_;
-  STATE state;
   mg_return_t ret;
 
   inline int PARSE_INT();

@@ -29,11 +29,14 @@
   if (req_[curr_ptr_++] != ch)                                                 \
     return mg_return_t::INVALID_SYNTAX;
 
-#define CALLBACK_MAYBE(NAME, ...)                                              \
-  if (sett == nullptr || sett->NAME == nullptr)                                \
-    ret = mg_return_t::SUCCESS;                                                \
-  else                                                                         \
-    ret = sett->NAME(__VA_ARGS__);
+template <typename FuncPtr, typename... Args>
+static mg_return_t Callback_Maybe(const mg_settings_t *sett, FuncPtr fptr,
+                                  Args... args) {
+  if (sett == nullptr || fptr == nullptr)
+    return mg_return_t::SUCCESS;
+  else
+    return fptr(args...);
+}
 
 #define PASS_WHITESPACE()                                                      \
   do {                                                                         \
@@ -56,7 +59,8 @@ mg_return_t mg_parser_t::parse_http_version() {
   major_version = PARSE_INT();
   CHAR_CHECK('.');
   minor_version = PARSE_INT();
-  CALLBACK_MAYBE(handle_version, major_version, minor_version);
+  ret =
+      Callback_Maybe(sett, sett->handle_version, major_version, minor_version);
 
   return ret;
 }
@@ -68,7 +72,8 @@ mg_return_t mg_parser_t::parse_start_line() {
     curr_ptr_++;
   } while (req_[curr_ptr_] != ' ');
 
-  CALLBACK_MAYBE(handle_method, req_.substr(start_ptr, curr_ptr_ - start_ptr));
+  ret = Callback_Maybe(sett, sett->handle_method,
+                       req_.substr(start_ptr, curr_ptr_ - start_ptr));
   if (ret == mg_return_t::PAUSE)
     return mg_return_t::INVALID_PAUSE;
   if (ret != 0)
@@ -81,7 +86,8 @@ mg_return_t mg_parser_t::parse_start_line() {
     curr_ptr_++;
   } while (req_[curr_ptr_] != ' ');
 
-  CALLBACK_MAYBE(handle_url, req_.substr(start_ptr, curr_ptr_ - start_ptr));
+  ret = Callback_Maybe(sett, sett->handle_url,
+                       req_.substr(start_ptr, curr_ptr_ - start_ptr));
   if (ret == mg_return_t::PAUSE)
     return mg_return_t::INVALID_PAUSE;
   if (ret != 0)
@@ -142,7 +148,7 @@ mg_return_t mg_parser_t::parse_headers() {
   if (req_[curr_ptr_++] == '\r') {
     CHECK_EOF();
     if (req_[curr_ptr_++] == '\n') {
-      CALLBACK_MAYBE(handle_header, field, value);
+      ret = Callback_Maybe(sett, sett->handle_header, field, value);
       if (ret != 0)
         return ret;
       else
@@ -161,7 +167,8 @@ mg_return_t mg_parser_t::parse_body() {
     curr_ptr_++;
   } while (curr_ptr_ < req_.size());
 
-  CALLBACK_MAYBE(handle_body, req_.substr(start_ptr, curr_ptr_ - start_ptr));
+  ret = Callback_Maybe(sett, sett->handle_body,
+                       req_.substr(start_ptr, curr_ptr_ - start_ptr));
   if (ret == mg_return_t::PAUSE)
     return mg_return_t::INVALID_PAUSE;
 
