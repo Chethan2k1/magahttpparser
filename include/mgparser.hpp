@@ -1,4 +1,5 @@
 #pragma once
+#include <functional>
 #include <string_view>
 
 enum mg_return_t {
@@ -13,23 +14,19 @@ enum mg_return_t {
   ERROR
 };
 
-using version_cb = mg_return_t (*)(const int &,
-                                   const int &); // major_version,minor_version
-using header_cb = mg_return_t (*)(std::string_view,
-                                  std::string_view); // header field and value
-using data_cb = mg_return_t (*)(std::string_view);
-
-struct mg_settings_t {
-  data_cb handle_method;
-  version_cb handle_version;
-  data_cb handle_url;
-  header_cb handle_header;
-  data_cb handle_body;
+template <typename... Args> struct mg_settings_t {
+  std::function<mg_return_t(std::string_view, Args...)> handle_method;
+  std::function<mg_return_t(int, int, Args...)>
+      handle_version; // major_version,minor_version
+  std::function<mg_return_t(std::string_view, Args...)> handle_url;
+  std::function<mg_return_t(std::string_view, std::string_view, Args...)>
+      handle_header; // header field and value
+  std::function<mg_return_t(std::string_view, Args...)> handle_body;
 };
 
 enum STATE { HEADER, BODY };
 
-struct mg_parser_t {
+template <typename... Args> struct mg_parser_t {
 private:
   STATE state;
   int curr_ptr_;
@@ -43,10 +40,12 @@ private:
   mg_return_t parse_body();
 
 public:
-  mg_settings_t *sett;
+  mg_settings_t<Args...> *sett;
 
   explicit mg_parser_t() : curr_ptr_(0), ret(mg_return_t::SUCCESS) {}
-  void mg_settings_init(mg_settings_t *);
+  void mg_settings_init(mg_settings_t<Args...> *);
   mg_return_t mg_parser_execute(std::string_view);
   mg_return_t mg_parser_resume(std::string_view);
 };
+
+#include "mgparser.cpp"

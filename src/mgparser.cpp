@@ -1,7 +1,3 @@
-#include "mgparser.hpp"
-#include <cstddef>
-#include <stdarg.h>
-
 /*
     State will be updated and when pause is called which is called by a return
    we store the state of the pointer and if it is at start line, header or body
@@ -29,9 +25,9 @@
   if (req_[curr_ptr_++] != ch)                                                 \
     return mg_return_t::INVALID_SYNTAX;
 
-template <typename FuncPtr, typename... Args>
-static mg_return_t Callback_Maybe(const mg_settings_t *sett, FuncPtr fptr,
-                                  Args... args) {
+template <typename FuncPtr, typename... Args1, typename... Args2>
+static mg_return_t Callback_Maybe(const mg_settings_t<Args2...> *sett,
+                                  FuncPtr fptr, Args1... args) {
   if (sett == nullptr || fptr == nullptr)
     return mg_return_t::SUCCESS;
   else
@@ -43,12 +39,13 @@ static mg_return_t Callback_Maybe(const mg_settings_t *sett, FuncPtr fptr,
     CHECK_EOF();                                                               \
   } while (req_[++curr_ptr_] == ' ')
 
-inline int mg_parser_t::PARSE_INT() {
+template <typename... Args> inline int mg_parser_t<Args...>::PARSE_INT() {
   CHECK_EOF();
   return (req_[curr_ptr_++] - '0');
 }
 
-mg_return_t mg_parser_t::parse_http_version() {
+template <typename... Args>
+mg_return_t mg_parser_t<Args...>::parse_http_version() {
   short int minor_version, major_version;
   CHAR_CHECK('H');
   CHAR_CHECK('T');
@@ -65,7 +62,8 @@ mg_return_t mg_parser_t::parse_http_version() {
   return ret;
 }
 
-mg_return_t mg_parser_t::parse_start_line() {
+template <typename... Args>
+mg_return_t mg_parser_t<Args...>::parse_start_line() {
   int start_ptr = curr_ptr_;
   do {
     CHECK_EOF();
@@ -114,7 +112,7 @@ mg_return_t mg_parser_t::parse_start_line() {
   return mg_return_t::INVALID_SYNTAX;
 }
 
-mg_return_t mg_parser_t::parse_headers() {
+template <typename... Args> mg_return_t mg_parser_t<Args...>::parse_headers() {
   // check for \r\n if that's the case end of headers
   if (req_[curr_ptr_] == '\r') {
     CHECK_EOF();
@@ -161,7 +159,7 @@ mg_return_t mg_parser_t::parse_headers() {
   return mg_return_t::UNEXPECTED;
 }
 
-mg_return_t mg_parser_t::parse_body() {
+template <typename... Args> mg_return_t mg_parser_t<Args...>::parse_body() {
   int start_ptr = curr_ptr_;
   do {
     curr_ptr_++;
@@ -175,17 +173,22 @@ mg_return_t mg_parser_t::parse_body() {
   return ret;
 }
 
-void mg_parser_t::mg_settings_init(mg_settings_t *settings) { sett = settings; }
+template <typename... Args>
+void mg_parser_t<Args...>::mg_settings_init(mg_settings_t<Args...> *settings) {
+  sett = settings;
+}
 
 // mg_return_t::SUCCESS for success
-mg_return_t mg_parser_t::mg_parser_execute(std::string_view req) {
+template <typename... Args>
+mg_return_t mg_parser_t<Args...>::mg_parser_execute(std::string_view req) {
   req_ = req;
   return parse_start_line();
 }
 
 // Pausing possible only after parsing start line and headers by calling
 // mg_return_t::PAUSE from callbacks
-mg_return_t mg_parser_t::mg_parser_resume(std::string_view req) {
+template <typename... Args>
+mg_return_t mg_parser_t<Args...>::mg_parser_resume(std::string_view req) {
   req_ = req;
   if (ret != mg_return_t::PAUSE)
     return mg_return_t::INVALID_PAUSE;

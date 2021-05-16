@@ -3,22 +3,16 @@ project(magahttpparser VERSION 0.1)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-set(src_files 
-    ${CMAKE_SOURCE_DIR}/src/mgparser.cpp
-)
-
-set(include_files
-    ${CMAKE_SOURCE_DIR}/include/mgparser.hpp
-)
-
 add_library(mgparser STATIC 
-    ${src_files}
-    ${include_files}
+    ${CMAKE_SOURCE_DIR}/include/mgparser.hpp
+    # ${CMAKE_SOURCE_DIR}/src/mgparser.cpp
 )
+set_target_properties(mgparser PROPERTIES LINKER_LANGUAGE CXX)
 target_compile_options(mgparser PUBLIC -Wall)
 set_target_properties(mgparser PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 target_include_directories(mgparser PUBLIC ${CMAKE_SOURCE_DIR}/include)
+target_include_directories(mgparser PUBLIC ${CMAKE_SOURCE_DIR}/src)
 
 # testing 
 set(test_files ${CMAKE_SOURCE_DIR}/test/test.cpp)
@@ -55,7 +49,11 @@ add_test(
 )
 
 # formating
-file(GLOB_RECURSE ALL_FILES ${src_files} ${include_files} ${test_files})
+file(GLOB_RECURSE ALL_FILES 
+    ${test_files}
+    ${CMAKE_SOURCE_DIR}/src/mgparser.cpp
+    ${CMAKE_SOURCE_DIR}/include/mgparser.hpp
+)
 
 add_custom_target(
         format
