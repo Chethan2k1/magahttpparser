@@ -54,7 +54,7 @@
   } while (false);
 
 TEST(Request, ResponseWithoutBody) {
-  mg_settings_t sett;
+  mg_settings_t<> sett;
   std::string req = "GET http://www.example.com/123 HTTP/1.1\r\n"
                     "Host: www.example.com\r\n"
                     "Last-Modified: Fri, 31 Dec 1999 23:59:59 GMT\r\n"
@@ -65,14 +65,14 @@ TEST(Request, ResponseWithoutBody) {
   HANDLE_URL();
   HANDLE_HEADER();
 
-  mg_parser_t parser;
+  mg_parser_t<> parser;
   parser.mg_settings_init(&sett);
   int ret = parser.mg_parser_execute(req);
   EXPECT_EQ(ret, 0);
 }
 
 TEST(Request, ResponseWithBody) {
-  mg_settings_t sett;
+  mg_settings_t<> sett;
   std::string req = "POST http://www.example.com/123 HTTP/1.1\r\n"
                     "Host: www.example.com\r\n"
                     "Last-Modified: Fri, 31 Dec 1999 23:59:59 GMT\r\n"
@@ -85,14 +85,14 @@ TEST(Request, ResponseWithBody) {
   HANDLE_HEADER();
   HANDLE_BODY("Hey there! Sup?");
 
-  mg_parser_t parser;
+  mg_parser_t<> parser;
   parser.mg_settings_init(&sett);
   int ret = parser.mg_parser_execute(req);
   EXPECT_EQ(ret, 0);
 }
 
 TEST(Request, ResponseWithPause) {
-  mg_settings_t sett;
+  mg_settings_t<> sett;
   std::string req = "POST http://www.example.com/123 HTTP/1.1\r\n"
                     "Host: www.example.com\r\n"
                     "Content-Length: 15\r\n"
@@ -118,12 +118,63 @@ TEST(Request, ResponseWithPause) {
   };
   HANDLE_BODY("Hey there! Sup?");
 
-  mg_parser_t parser;
+  mg_parser_t<> parser;
   parser.mg_settings_init(&sett);
   int ret = parser.mg_parser_execute(req);
   EXPECT_EQ(ret, mg_return_t::PAUSE);
   req += req_only_body;
   ret = parser.mg_parser_resume(req);
+  EXPECT_EQ(ret, 0);
+}
+
+TEST(Request, CallbackWithAdditionalArguments) {
+  mg_settings_t<int &> sett;
+  std::string req = "GET http://www.example.com/123 HTTP/1.1\r\n"
+                    "Host: www.example.com\r\n"
+                    "Last-Modified: Fri, 31 Dec 1999 23:59:59 GMT\r\n"
+                    "User-Agent: RandomBrowser1.1\r\n";
+  int count = 1;
+
+  sett.handle_method = [](std::string_view method, int &count) -> mg_return_t {
+    EXPECT_EQ(method, "GET");
+    EXPECT_EQ(count++, 1);
+    return mg_return_t::SUCCESS;
+  };
+
+  sett.handle_version = [](int mjv, int miv, int &count) -> mg_return_t {
+    EXPECT_EQ(mjv, 1);
+    EXPECT_EQ(miv, 1);
+    EXPECT_EQ(count++, 2);
+    return mg_return_t::SUCCESS;
+  };
+
+  sett.handle_url = [](std::string_view url, int &count) -> mg_return_t {
+    EXPECT_EQ(url, "http://www.example.com/123");
+    return mg_return_t::SUCCESS;
+  };
+
+  sett.handle_header = [](std::string_view field, std::string_view val,
+                          int &count) -> mg_return_t {
+    if (field == "Host") {
+      EXPECT_EQ(val, "www.example.com");
+      EXPECT_EQ(count++, 4);
+      return mg_return_t::SUCCESS;
+    } else if (field == "User-Agent") {
+      EXPECT_EQ(val, "RandomBrowser1.1");
+      EXPECT_EQ(count++, 6);
+      return mg_return_t::SUCCESS;
+    } else if (field == "Last-Modified") {
+      EXPECT_EQ(val, "Fri, 31 Dec 1999 23:59:59 GMT");
+      EXPECT_EQ(count++, 5);
+      return mg_return_t::SUCCESS;
+    }
+
+    return mg_return_t::ERROR;
+  };
+
+  mg_parser_t<int &> parser;
+  parser.mg_settings_init(&sett);
+  int ret = parser.mg_parser_execute(req, count);
   EXPECT_EQ(ret, 0);
 }
 
