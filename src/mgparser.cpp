@@ -27,11 +27,11 @@
 
 template <typename FuncPtr, typename... Args1, typename... Args2>
 static mg_return_t Callback_Maybe(const mg_settings_t<Args2...> *sett,
-                                  FuncPtr fptr, Args1... args) {
+                                  FuncPtr fptr, Args1 &&...args) {
   if (sett == nullptr || fptr == nullptr)
     return mg_return_t::SUCCESS;
   else
-    return fptr(args...);
+    return fptr(std::forward<Args1>(args)...);
 }
 
 #define PASS_WHITESPACE()                                                      \
@@ -45,7 +45,7 @@ template <typename... Args> inline int mg_parser_t<Args...>::PARSE_INT() {
 }
 
 template <typename... Args>
-mg_return_t mg_parser_t<Args...>::parse_http_version(Args... args) {
+mg_return_t mg_parser_t<Args...>::parse_http_version(Args &&...args) {
   short int minor_version, major_version;
   CHAR_CHECK('H');
   CHAR_CHECK('T');
@@ -57,13 +57,13 @@ mg_return_t mg_parser_t<Args...>::parse_http_version(Args... args) {
   CHAR_CHECK('.');
   minor_version = PARSE_INT();
   ret = Callback_Maybe(sett, sett->handle_version, major_version, minor_version,
-                       args...);
+                       std::forward<Args>(args)...);
 
   return ret;
 }
 
 template <typename... Args>
-mg_return_t mg_parser_t<Args...>::parse_start_line(Args... args) {
+mg_return_t mg_parser_t<Args...>::parse_start_line(Args &&...args) {
   int start_ptr = curr_ptr_;
   do {
     CHECK_EOF();
@@ -71,7 +71,8 @@ mg_return_t mg_parser_t<Args...>::parse_start_line(Args... args) {
   } while (req_[curr_ptr_] != ' ');
 
   ret = Callback_Maybe(sett, sett->handle_method,
-                       req_.substr(start_ptr, curr_ptr_ - start_ptr), args...);
+                       req_.substr(start_ptr, curr_ptr_ - start_ptr),
+                       std::forward<Args>(args)...);
   if (ret == mg_return_t::PAUSE)
     return mg_return_t::INVALID_PAUSE;
   if (ret != 0)
@@ -85,14 +86,15 @@ mg_return_t mg_parser_t<Args...>::parse_start_line(Args... args) {
   } while (req_[curr_ptr_] != ' ');
 
   ret = Callback_Maybe(sett, sett->handle_url,
-                       req_.substr(start_ptr, curr_ptr_ - start_ptr), args...);
+                       req_.substr(start_ptr, curr_ptr_ - start_ptr),
+                       std::forward<Args>(args)...);
   if (ret == mg_return_t::PAUSE)
     return mg_return_t::INVALID_PAUSE;
   if (ret != 0)
     return ret;
 
   PASS_WHITESPACE();
-  ret = parse_http_version(args...);
+  ret = parse_http_version(std::forward<Args>(args)...);
   if (ret != 0 && ret != mg_return_t::PAUSE)
     return ret;
 
@@ -103,7 +105,7 @@ mg_return_t mg_parser_t<Args...>::parse_start_line(Args... args) {
     if (req_[curr_ptr_++] == '\n') {
       if (ret == mg_return_t::PAUSE)
         return ret;
-      return parse_headers(args...);
+      return parse_headers(std::forward<Args>(args)...);
     } else {
       return mg_return_t::INVALID_SYNTAX;
     }
@@ -113,14 +115,14 @@ mg_return_t mg_parser_t<Args...>::parse_start_line(Args... args) {
 }
 
 template <typename... Args>
-mg_return_t mg_parser_t<Args...>::parse_headers(Args... args) {
+mg_return_t mg_parser_t<Args...>::parse_headers(Args &&...args) {
   // check for \r\n if that's the case end of headers
   if (req_[curr_ptr_] == '\r') {
     CHECK_EOF();
     if (req_[++curr_ptr_] == '\n') {
       IS_EOF();
       ++curr_ptr_;
-      return parse_body(args...);
+      return parse_body(std::forward<Args>(args)...);
     } else {
       return mg_return_t::INVALID_SYNTAX;
     }
@@ -147,11 +149,12 @@ mg_return_t mg_parser_t<Args...>::parse_headers(Args... args) {
   if (req_[curr_ptr_++] == '\r') {
     CHECK_EOF();
     if (req_[curr_ptr_++] == '\n') {
-      ret = Callback_Maybe(sett, sett->handle_header, field, value, args...);
+      ret = Callback_Maybe(sett, sett->handle_header, field, value,
+                           std::forward<Args>(args)...);
       if (ret != 0)
         return ret;
       else
-        return parse_headers(args...);
+        return parse_headers(std::forward<Args>(args)...);
     } else {
       return mg_return_t::INVALID_SYNTAX;
     }
@@ -161,14 +164,15 @@ mg_return_t mg_parser_t<Args...>::parse_headers(Args... args) {
 }
 
 template <typename... Args>
-mg_return_t mg_parser_t<Args...>::parse_body(Args... args) {
+mg_return_t mg_parser_t<Args...>::parse_body(Args &&...args) {
   int start_ptr = curr_ptr_;
   do {
     curr_ptr_++;
   } while (curr_ptr_ < req_.size());
 
   ret = Callback_Maybe(sett, sett->handle_body,
-                       req_.substr(start_ptr, curr_ptr_ - start_ptr), args...);
+                       req_.substr(start_ptr, curr_ptr_ - start_ptr),
+                       std::forward<Args>(args)...);
   if (ret == mg_return_t::PAUSE)
     return mg_return_t::INVALID_PAUSE;
 
@@ -183,24 +187,24 @@ void mg_parser_t<Args...>::mg_settings_init(mg_settings_t<Args...> *settings) {
 // mg_return_t::SUCCESS for success
 template <typename... Args>
 mg_return_t mg_parser_t<Args...>::mg_parser_execute(std::string_view req,
-                                                    Args... args) {
+                                                    Args &&...args) {
   req_ = req;
-  return parse_start_line(args...);
+  return parse_start_line(std::forward<Args>(args)...);
 }
 
 // Pausing possible only after parsing start line and headers by calling
 // mg_return_t::PAUSE from callbacks
 template <typename... Args>
 mg_return_t mg_parser_t<Args...>::mg_parser_resume(std::string_view req,
-                                                   Args... args) {
+                                                   Args &&...args) {
   req_ = req;
   if (ret != mg_return_t::PAUSE)
     return mg_return_t::INVALID_PAUSE;
 
   if (state == STATE::HEADER) {
-    return parse_headers(args...);
+    return parse_headers(std::forward<Args>(args)...);
   } else if (state == STATE::BODY) {
-    return parse_body(args...);
+    return parse_body(std::forward<Args>(args)...);
   }
 
   return INVALID_PAUSE;

@@ -133,7 +133,7 @@ TEST(Request, CallbackWithAdditionalArguments) {
                     "Host: www.example.com\r\n"
                     "Last-Modified: Fri, 31 Dec 1999 23:59:59 GMT\r\n"
                     "User-Agent: RandomBrowser1.1\r\n";
-  int count = 1;
+  int ct = 1;
 
   sett.handle_method = [](std::string_view method, int &count) -> mg_return_t {
     EXPECT_EQ(method, "GET");
@@ -157,15 +157,15 @@ TEST(Request, CallbackWithAdditionalArguments) {
                           int &count) -> mg_return_t {
     if (field == "Host") {
       EXPECT_EQ(val, "www.example.com");
-      EXPECT_EQ(count++, 4);
+      EXPECT_EQ(count++, 3);
       return mg_return_t::SUCCESS;
     } else if (field == "User-Agent") {
       EXPECT_EQ(val, "RandomBrowser1.1");
-      EXPECT_EQ(count++, 6);
+      EXPECT_EQ(count++, 5);
       return mg_return_t::SUCCESS;
     } else if (field == "Last-Modified") {
       EXPECT_EQ(val, "Fri, 31 Dec 1999 23:59:59 GMT");
-      EXPECT_EQ(count++, 5);
+      EXPECT_EQ(count++, 4);
       return mg_return_t::SUCCESS;
     }
 
@@ -174,7 +174,7 @@ TEST(Request, CallbackWithAdditionalArguments) {
 
   mg_parser_t<int &> parser;
   parser.mg_settings_init(&sett);
-  int ret = parser.mg_parser_execute(req, count);
+  int ret = parser.mg_parser_execute(req, ct);
   EXPECT_EQ(ret, 0);
 }
 
